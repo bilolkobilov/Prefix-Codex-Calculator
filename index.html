@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Prefix Codex Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+        }
+
+        .tree-node circle {
+            stroke-width: 2px;
+            stroke: #fff;
+        }
+
+        .tree-node text {
+            font-size: 14px;
+            fill: white;
+            font-weight: 500;
+            text-anchor: middle;
+            user-select: none;
+        }
+
+        .tree-node--internal circle {
+            fill: #4f46e5;
+            r: 24px;
+        }
+
+        .tree-node--leaf circle {
+            fill: #10b981;
+            r: 22px;
+        }
+
+        .tree-link {
+            fill: none;
+            stroke: #9ca3af;
+            stroke-width: 3px;
+        }
+
+        .code-label {
+            font-size: 14px;
+            fill: #d946ef;
+            font-weight: 600;
+            user-select: none;
+        }
+
+        .frequency-bar {
+            fill: #93c5fd;
+            transition: fill 0.3s ease;
+        }
+
+        .frequency-bar:hover {
+            fill: #3b82f6;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .frequency-bar-label {
+            fill: #374151;
+            font-size: 14px;
+            text-anchor: middle;
+        }
+
+        .node-text {
+            font-size: 14px;
+            font-weight: 600;
+            fill: white;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        @media (max-width: 768px) {
+            .tree-node--internal circle {
+                r: 18px;
+            }
+
+            .tree-node--leaf circle {
+                r: 16px;
+            }
+
+            .node-text {
+                font-size: 12px;
+            }
+
+            .code-label {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-blue-50 to-blue-100 min-h-screen flex flex-col">
+    <header class="text-center pt-6 md:pt-8 pb-0 px-4">
+        <h1
+            class="text-2xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-4">
+            Prefix Codex Calculator
+        </h1>
+    </header>
+
+    <main class="container mx-auto px-4 py-6 md:py-8 flex-grow">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-6 md:mb-8">
+            <div class="bg-white rounded-xl md:rounded-2xl shadow-lg md:shadow-xl p-6 md:p-8 border border-blue-100">
+                <h2 class="text-xl md:text-2xl font-semibold text-blue-800 mb-4 md:mb-6">
+                    Input Text
+                </h2>
+                <textarea id="inputText" rows="6"
+                    class="w-full px-3 md:px-4 py-2 md:py-3 border-2 border-blue-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-300 placeholder:text-gray-400 placeholder:font-light"
+                    placeholder="Enter text to analyze, encode, and visualize...&#10;Or try the 'Load Sample' button!"></textarea>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mt-4 md:mt-6">
+                    <button id="analyzeBtn"
+                        class="w-full bg-blue-600 text-white py-2 md:py-3 rounded-lg md:rounded-xl hover:bg-blue-700 transition duration-300 flex items-center justify-center space-x-2 font-semibold text-sm md:text-base">
+                        <i class="material-icons text-lg">search</i>
+                        <span>Analyze Text</span>
+                    </button>
+
+                    <button id="sampleBtn"
+                        class="w-full bg-blue-100 text-blue-700 py-2 md:py-3 rounded-lg md:rounded-xl hover:bg-blue-200 transition duration-300 flex items-center justify-center space-x-2 font-semibold border border-blue-200 hover:border-blue-300 text-sm md:text-base">
+                        <i class="material-icons text-lg">article</i>
+                        <span>Load Sample Text</span>
+                    </button>
+                </div>
+            </div>
+
+            <div
+                class="bg-white rounded-xl md:rounded-2xl shadow-lg md:shadow-xl p-4 md:p-6 border border-blue-100 flex flex-col">
+                <div id="frequencies" class="mb-4 md:mb-6">
+                    <h3 class="text-xl md:text-2xl font-semibold text-blue-800 mb-3 md:mb-4">
+                        Character Frequencies
+                    </h3>
+                    <div class="overflow-x-auto max-h-72">
+                        <table class="w-full divide-y divide-blue-200">
+                            <thead class="bg-blue-50">
+                                <tr>
+                                    <th
+                                        class="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">
+                                        Character
+                                    </th>
+                                    <th
+                                        class="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">
+                                        Frequency
+                                    </th>
+                                    <th
+                                        class="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">
+                                        Percentage
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="frequenciesBody" class="bg-white divide-y divide-blue-100"></tbody>
+                        </table>
+                    </div>
+                    <div id="frequencyChart" class="mt-4 md:mt-6 w-full">
+                        <svg></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="codes"
+            class="bg-white rounded-xl md:rounded-2xl shadow-lg md:shadow-xl p-6 md:p-8 border border-blue-100 mb-6 md:mb-8">
+            <h2 class="text-xl md:text-2xl font-semibold text-blue-800 mb-4 md:mb-6">
+                Huffman Codes
+            </h2>
+            <div class="overflow-x-auto max-h-72">
+                <table class="w-full divide-y divide-blue-200">
+                    <thead class="bg-blue-50">
+                        <tr>
+                            <th
+                                class="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">
+                                Character
+                            </th>
+                            <th
+                                class="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">
+                                Code
+                            </th>
+                            <th
+                                class="px-4 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">
+                                Code Length
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="codesBody" class="bg-white divide-y divide-blue-100 font-mono"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div
+            class="bg-white rounded-xl md:rounded-2xl shadow-lg md:shadow-xl p-6 md:p-8 border border-blue-100 mb-6 md:mb-8">
+            <h2 class="text-xl md:text-2xl font-semibold text-blue-800 mb-4 md:mb-6">
+                Encode & Decode
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                <div>
+                    <h3 class="text-lg md:text-xl font-medium text-blue-700 mb-3 md:mb-4">
+                        Encode
+                    </h3>
+                    <div class="space-y-3 md:space-y-4">
+                        <textarea id="encodeInput" rows="4"
+                            class="w-full px-3 md:px-4 py-2 md:py-3 border-2 border-blue-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-300 placeholder:text-gray-400 placeholder:font-light"
+                            placeholder="Text will auto-fill from input above" readonly></textarea>
+                        <div class="relative">
+                            <div id="encodedOutput"
+                                class="bg-blue-50 p-3 md:p-4 rounded-lg md:rounded-xl break-words font-mono text-blue-700 min-h-[80px] md:min-h-[100px] border border-blue-200 shadow-inner text-sm md:text-base">
+                                Encoded binary will appear here
+                            </div>
+                            <button id="copyEncodedBtn"
+                                class="absolute top-1 md:top-2 right-1 md:right-2 p-1 md:p-2 rounded-md md:rounded-lg bg-white text-blue-600 hover:bg-blue-50 transition duration-200 border border-blue-200 shadow-sm"
+                                title="Copy to clipboard">
+                                <i class="material-icons text-sm md:text-base">content_copy</i>
+                            </button>
+                        </div>
+                        <div class="mt-3 md:mt-4 flex justify-end">
+                            <button id="encodeBtn"
+                                class="bg-blue-600 text-white py-2 md:py-3 px-4 md:px-6 rounded-lg md:rounded-xl hover:bg-blue-700 transition duration-300 flex items-center space-x-2 font-semibold text-sm md:text-base">
+                                <i class="material-icons text-lg">keyboard_arrow_right</i>
+                                <span>Encode Text</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg md:text-xl font-medium text-blue-700 mb-3 md:mb-4">
+                        Decode
+                    </h3>
+                    <div class="space-y-3 md:space-y-4">
+                        <textarea id="decodeInput" rows="4"
+                            class="w-full px-3 md:px-4 py-2 md:py-3 border-2 border-blue-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-300 placeholder:text-gray-400 placeholder:font-light"
+                            placeholder="Enter binary to decode... (Based on analyzed text)"></textarea>
+                        <div class="relative">
+                            <div id="decodedOutput"
+                                class="bg-blue-50 p-3 md:p-4 rounded-lg md:rounded-xl break-words font-mono text-blue-700 min-h-[80px] md:min-h-[100px] border border-blue-200 shadow-inner text-sm md:text-base">
+                                Decoded text will appear here
+                            </div>
+                            <button id="copyDecodedBtn"
+                                class="absolute top-1 md:top-2 right-1 md:right-2 p-1 md:p-2 rounded-md md:rounded-lg bg-white text-blue-600 hover:bg-blue-50 transition duration-200 border border-blue-200 shadow-sm"
+                                title="Copy to clipboard">
+                                <i class="material-icons text-sm md:text-base">content_copy</i>
+                            </button>
+                        </div>
+                        <div class="mt-3 md:mt-4 flex justify-end">
+                            <button id="decodeBtn"
+                                class="bg-blue-600 text-white py-2 md:py-3 px-4 md:px-6 rounded-lg md:rounded-xl hover:bg-blue-700 transition duration-300 flex items-center space-x-2 font-semibold text-sm md:text-base">
+                                <i class="material-icons text-lg">keyboard_arrow_left</i>
+                                <span>Decode Binary</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div
+            class="bg-white rounded-xl md:rounded-2xl shadow-lg md:shadow-xl p-6 md:p-8 border border-blue-100 mb-6 md:mb-8">
+            <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-4 md:mb-6 gap-4">
+                <h2 class="text-xl md:text-2xl font-semibold text-blue-800">
+                    Huffman Tree Visualization
+                </h2>
+                <button id="downloadTreeBtn"
+                    class="bg-blue-600 text-white py-2 md:py-3 px-4 md:px-6 rounded-lg md:rounded-xl hover:bg-blue-700 transition duration-300 flex items-center space-x-2 font-semibold text-sm md:text-base w-full md:w-auto justify-center">
+                    <i class="material-icons text-lg">image</i>
+                    <span>Download Image</span>
+                </button>
+            </div>
+            <div id="tree2d"
+                class="w-full h-[300px] md:h-[500px] border-2 border-blue-200 rounded-lg md:rounded-xl bg-blue-50 flex items-center justify-center relative overflow-hidden">
+                <p class="text-gray-400 text-base md:text-lg">
+                    Analyze text to visualize the Huffman Tree
+                </p>
+            </div>
+            <div class="mt-4 md:mt-6 flex flex-wrap justify-center gap-2 md:gap-4">
+                <button id="zoomIn2d"
+                    class="px-3 md:px-5 py-2 md:py-3 bg-blue-200 text-blue-700 rounded-lg md:rounded-xl hover:bg-blue-300 transition-colors font-semibold flex items-center space-x-2 text-sm md:text-base">
+                    <i class="material-icons text-sm md:text-base">zoom_in</i>
+                    <span>Zoom In</span>
+                </button>
+                <button id="zoomOut2d"
+                    class="px-3 md:px-5 py-2 md:py-3 bg-blue-200 text-blue-700 rounded-lg md:rounded-xl hover:bg-blue-300 transition-colors font-semibold flex items-center space-x-2 text-sm md:text-base">
+                    <i class="material-icons text-sm md:text-base">zoom_out</i>
+                    <span>Zoom Out</span>
+                </button>
+                <button id="reset2d"
+                    class="px-3 md:px-5 py-2 md:py-3 bg-blue-200 text-blue-700 rounded-lg md:rounded-xl hover:bg-blue-300 transition-colors font-semibold flex items-center space-x-2 text-sm md:text-base">
+                    <i class="material-icons text-sm md:text-base">restore</i>
+                    <span>Reset View</span>
+                </button>
+            </div>
+        </div>
+
+        <div
+            class="mt-6 md:mt-8 bg-blue-50 rounded-xl md:rounded-2xl shadow-lg md:shadow-xl p-6 md:p-8 border border-blue-100">
+            <h2 class="text-xl md:text-2xl font-semibold text-blue-800 mb-4 md:mb-6">
+                About Prefix Codes
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div>
+                    <h3 class="text-base md:text-lg font-semibold text-blue-700 mb-2 md:mb-3">
+                        What are Prefix Codes?
+                    </h3>
+                    <p class="text-gray-700 leading-relaxed text-sm md:text-base">
+                        Prefix codes are a type of encoding system (a code) with the
+                        "prefix property", which means that no code word is a prefix of
+                        any other code word. Huffman coding is the most famous algorithm
+                        for generating optimal prefix codes, assigning shorter codes to
+                        more frequent symbols for efficient compression.
+                    </p>
+                    <ul
+                        class="list-disc pl-4 md:pl-5 mt-3 md:mt-4 space-y-1 md:space-y-2 text-gray-700 text-sm md:text-base">
+                        <li class="font-medium">Key Concept:</li>
+                        <li class="ml-4 md:ml-5">
+                            Prefix Codes: No code is a prefix of any other code, ensuring
+                            unambiguous decoding.
+                        </li>
+                        <li class="ml-4 md:ml-5">
+                            Optimality: For a given set of symbols and their frequencies,
+                            Huffman coding creates the most efficient prefix code.
+                        </li>
+                    </ul>
+                    <div class="mt-4 md:mt-6">
+                        <h4 class="text-sm md:text-md font-semibold text-blue-700 mb-1 md:mb-2">
+                            Calculation Steps:
+                        </h4>
+                        <ol class="list-decimal pl-4 md:pl-5 space-y-1 md:space-y-2 text-gray-700 text-sm md:text-base">
+                            <li>
+                                Calculate the frequency of each character in the input text.
+                            </li>
+                            <li>
+                                Create a leaf node for each character and its frequency.
+                            </li>
+                            <li>Sort the nodes in ascending order of frequency.</li>
+                            <li>Pick the two nodes with the lowest frequency.</li>
+                            <li>
+                                Create a new internal node with a frequency equal to the sum
+                                of the two nodes' frequencies. Make the first node the left
+                                child and the second node the right child.
+                            </li>
+                            <li>
+                                Repeat steps 3-5 until only one node remains. This is the root
+                                of the Huffman tree.
+                            </li>
+                            <li>
+                                Assign binary codes to each leaf node by traversing the tree.
+                                A left branch is assigned '0' and a right branch is assigned
+                                '1'.
+                            </li>
+                        </ol>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-base md:text-lg font-semibold text-blue-700 mb-2 md:mb-3">
+                        How This Calculator Works
+                    </h3>
+                    <ul class="list-disc pl-4 md:pl-5 space-y-1 md:space-y-2 text-gray-700 text-sm md:text-base">
+                        <li>
+                            <span class="font-semibold">Input:</span> Enter text in the
+                            input area.
+                        </li>
+                        <li>
+                            <span class="font-semibold">Analysis:</span> The tool calculates
+                            character frequencies.
+                        </li>
+                        <li>
+                            <span class="font-semibold">Tree Building:</span> A Huffman tree
+                            is constructed based on these frequencies.
+                        </li>
+                        <li>
+                            <span class="font-semibold">Code Assignment:</span> Binary codes
+                            are assigned by traversing the tree.
+                        </li>
+                        <li>
+                            <span class="font-semibold">Visualization:</span> The tree is
+                            displayed, showing code assignments.
+                        </li>
+                        <li>
+                            <span class="font-semibold">Encoding/Decoding:</span>
+                            Encode/decode text using the generated codes.
+                        </li>
+                        <li>
+                            <span class="font-semibold">Output:</span> View results,
+                            statistics, and the interactive tree.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div
+                class="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-blue-100 text-gray-500 text-xs md:text-sm flex items-center justify-center gap-2">
+                <span>Developed by</span>
+                <a href="https://github.com/bilolkobilov" target="_blank"
+                    class="font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                    bilolkobilov
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="feather feather-github">
+                        <path
+                            d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+                        </path>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center py-4 md:py-6 text-gray-500 text-xs md:text-sm">
+        &copy; 2025 Prefix Codex Calculator. All rights reserved.
+    </footer>
+
+    <script>
+        // Global variables
+        let huffmanTree = null;
+        let huffmanCodes = {};
+        let svg, g, zoom, treeData;
+        let currentScale = 1;
+        let frequenciesData = [];
+        const tooltip = d3
+            .select("body")
+            .append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // DOM elements
+        const inputText = document.getElementById("inputText");
+        const analyzeBtn = document.getElementById("analyzeBtn");
+        const sampleBtn = document.getElementById("sampleBtn");
+        const frequenciesDiv = document.getElementById("frequencies");
+        const frequenciesBody = document.getElementById("frequenciesBody");
+        const codesBody = document.getElementById("codesBody");
+
+        const encodeInput = document.getElementById("encodeInput");
+        const decodeInput = document.getElementById("decodeInput");
+        const encodedOutput = document.getElementById("encodedOutput");
+        const decodedOutput = document.getElementById("decodedOutput");
+        const encodeBtn = document.getElementById("encodeBtn");
+        const decodeBtn = document.getElementById("decodeBtn");
+
+        const tree2d = document.getElementById("tree2d");
+        const zoomIn2d = document.getElementById("zoomIn2d");
+        const zoomOut2d = document.getElementById("zoomOut2d");
+        const reset2d = document.getElementById("reset2d");
+        const downloadTreeBtn = document.getElementById("downloadTreeBtn");
+
+        const frequencyChartContainer = d3.select("#frequencyChart svg");
+        const frequencyChartTooltip = d3
+            .select("body")
+            .append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // Event listeners
+        analyzeBtn.addEventListener("click", analyzeText);
+        sampleBtn.addEventListener("click", loadSample);
+        zoomIn2d.addEventListener("click", () => zoom2d(1.2));
+        zoomOut2d.addEventListener("click", () => zoom2d(0.8));
+        reset2d.addEventListener("click", reset2dView);
+        encodeBtn.addEventListener("click", encodeText);
+        decodeBtn.addEventListener("click", decodeText);
+        downloadTreeBtn.addEventListener("click", downloadTreeImage);
+
+        // Auto-fill encode textarea when analyzing text
+        inputText.addEventListener("input", function () {
+            if (this.value.trim()) {
+                analyzeText();
+            }
+        });
+
+        // Load sample text
+        function loadSample() {
+            const sampleText =
+                "The quick brown fox jumps over the lazy dog.  This is a sample text to demonstrate Huffman coding.";
+            inputText.value = sampleText;
+            inputText.dispatchEvent(new Event("input"));
+        }
+
+        // Main analysis function
+        function analyzeText() {
+            const text = inputText.value.trim();
+            if (!text) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Input Required',
+                    text: 'Please enter some text to analyze.',
+                    confirmButtonColor: '#4f46e5',
+                });
+                return;
+            }
+
+            frequenciesDiv.classList.remove("hidden");
+            encodeInput.value = text;
+
+            const frequencies = calculateFrequencies(text);
+            frequenciesData = frequencies;
+            displayFrequencies(frequencies, text.length);
+
+            huffmanTree = buildHuffmanTree(frequencies);
+            huffmanCodes = {};
+            generateHuffmanCodes(huffmanTree, "");
+            displayHuffmanCodes();
+            visualize2dTree(huffmanTree);
+            renderFrequencyChart(frequencies);
+            decodeInput.value = "";
+            decodedOutput.textContent = "";
+        }
+
+        // Calculate character frequencies
+        function calculateFrequencies(text) {
+            const freq = {};
+            for (const char of text) {
+                freq[char] = (freq[char] || 0) + 1;
+            }
+
+            return Object.entries(freq)
+                .map(([char, count]) => ({ char, count }))
+                .sort((a, b) => b.count - a.count);
+        }
+
+        // Display frequencies and render chart
+        function displayFrequencies(frequencies, totalChars) {
+            frequenciesBody.innerHTML = "";
+
+            frequencies.forEach((item) => {
+                const percentage = ((item.count / totalChars) * 100).toFixed(2);
+                const charDisplay =
+                    item.char === " "
+                        ? "Space"
+                        : item.char === "\n"
+                            ? "Newline"
+                            : item.char === "\t"
+                                ? "Tab"
+                                : escapeHtml(item.char);
+
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td class="px-4 md:px-6 py-3 whitespace-nowrap font-mono">${charDisplay}</td>
+                    <td class="px-4 md:px-6 py-3 whitespace-nowrap">${item.count}</td>
+                    <td class="px-4 md:px-6 py-3 whitespace-nowrap">${percentage}%</td>
+                `;
+                frequenciesBody.appendChild(row);
+            });
+            renderFrequencyChart(frequencies);
+        }
+
+        function renderFrequencyChart(frequencies) {
+            frequencyChartContainer.selectAll("*").remove();
+            const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+            const width =
+                document.getElementById("frequencyChart").offsetWidth -
+                margin.left -
+                margin.right;
+            const height = 200 - margin.top - margin.bottom;
+            const svg = frequencyChartContainer
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+            const g = svg
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x = d3
+                .scaleBand()
+                .domain(frequencies.map((d) => d.char))
+                .range([0, width])
+                .padding(0.1);
+
+            const y = d3
+                .scaleLinear()
+                .domain([0, d3.max(frequencies, (d) => d.count)])
+                .range([height, 0]);
+
+            g.selectAll(".bar")
+                .data(frequencies)
+                .enter()
+                .append("rect")
+                .attr("class", "frequency-bar")
+                .attr("x", (d) => x(d.char))
+                .attr("width", x.bandwidth())
+                .attr("y", (d) => y(d.count))
+                .attr("height", (d) => height - y(d.count))
+                .on("mouseover", (event, d) => {
+                    frequencyChartTooltip.transition().style("opacity", 0.9);
+                    const charDisplay =
+                        d.char === " "
+                            ? "Space"
+                            : d.char === "\n"
+                                ? "Newline"
+                                : d.char === "\t"
+                                    ? "Tab"
+                                    : escapeHtml(d.char);
+                    frequencyChartTooltip
+                        .html(
+                            `Character: ${charDisplay}<br>Frequency: ${d.count
+                            }<br>Percentage: ${(
+                                (d.count / inputText.value.trim().length) *
+                                100
+                            ).toFixed(2)}%`
+                        )
+                        .style("left", event.pageX + 10 + "px")
+                        .style("top", event.pageY - 28 + "px");
+                })
+                .on("mouseout", () => {
+                    frequencyChartTooltip.transition().style("opacity", 0);
+                });
+
+            g.selectAll(".label")
+                .data(frequencies)
+                .enter()
+                .append("text")
+                .attr("class", "frequency-bar-label")
+                .attr("x", (d) => x(d.char) + x.bandwidth() / 2)
+                .attr("y", (d) => y(d.count) - 5)
+                .text((d) => d.count);
+
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(
+                    d3
+                        .axisBottom(x)
+                        .tickFormat((d) =>
+                            d === " " ? "Space" : d === "\n" ? "NL" : d === "\t" ? "Tab" : d
+                        )
+                )
+                .selectAll("text")
+                .style("font-size", "12px")
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end");
+
+            g.append("g")
+                .call(d3.axisLeft(y).ticks(5).tickSizeOuter(0))
+                .selectAll("text")
+                .style("font-size", "12px");
+
+            svg
+                .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", margin.left - 40)
+                .attr("x", -(height / 2))
+                .attr("dy", "0.71em")
+                .style("text-anchor", "middle")
+                .style("font-size", "12px")
+                .text("Frequency");
+        }
+
+        // Build Huffman tree
+        function buildHuffmanTree(frequencies) {
+            let nodes = frequencies.map((item) => ({
+                char: item.char,
+                count: item.count,
+                left: null,
+                right: null,
+            }));
+
+            while (nodes.length > 1) {
+                nodes.sort((a, b) => a.count - b.count);
+                const left = nodes.shift();
+                const right = nodes.shift();
+                const newNode = {
+                    char: null,
+                    count: left.count + right.count,
+                    left: left,
+                    right: right,
+                };
+
+                nodes.push(newNode);
+            }
+
+            return nodes[0];
+        }
+
+        // Generate Huffman codes
+        function generateHuffmanCodes(node, code) {
+            if (node.char !== null) {
+                huffmanCodes[node.char] = code;
+                return;
+            }
+            if (node.left) generateHuffmanCodes(node.left, code + "0");
+            if (node.right) generateHuffmanCodes(node.right, code + "1");
+        }
+
+        function displayHuffmanCodes() {
+            codesBody.innerHTML = "";
+            const sortedChars = Object.keys(huffmanCodes).sort();
+            sortedChars.forEach((char) => {
+                const charDisplay =
+                    char === " "
+                        ? "Space"
+                        : char === "\n"
+                            ? "Newline"
+                            : char === "\t"
+                                ? "Tab"
+                                : escapeHtml(char);
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td class="px-4 md:px-6 py-2 md:py-3 whitespace-nowrap font-mono">${charDisplay}</td>
+                    <td class="px-4 md:px-6 py-2 md:py-3 whitespace-nowrap font-mono">${huffmanCodes[char]
+                    }</td>
+                    <td class="px-4 md:px-6 py-2 md:py-3 whitespace-nowrap font-mono">${huffmanCodes[char]?.length || 0
+                    }</td>
+                `;
+                codesBody.appendChild(row);
+            });
+        }
+
+        // Encode text
+        function encodeText() {
+            const text = encodeInput.value.trim();
+            if (!text) {
+                encodedOutput.textContent = "No text to encode";
+                return;
+            }
+            if (!huffmanTree) {
+                encodedOutput.textContent =
+                    "Analyze text first to generate Huffman codes";
+                return;
+            }
+
+            let encoded = "";
+            let invalidChars = [];
+
+            for (const char of text) {
+                if (huffmanCodes[char] === undefined) {
+                    invalidChars.push(char);
+                } else {
+                    encoded += huffmanCodes[char];
+                }
+            }
+
+            encodedOutput.textContent = encoded || "No valid characters to encode";
+            if (invalidChars.length > 0) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Encoding Error',
+                    html: `The following characters are not in the analyzed text and cannot be encoded: <strong>${invalidChars.join(", ")}</strong>`,
+                    confirmButtonColor: '#4f46e5',
+                });
+            }
+        }
+
+        // Decode binary
+        function decodeText() {
+            const binary = decodeInput.value.trim();
+            if (!binary) {
+                decodedOutput.textContent = "Enter binary to decode";
+                return;
+            }
+            if (!huffmanTree) {
+                decodedOutput.textContent =
+                    "Analyze text first to generate Huffman codes";
+                return;
+            }
+
+            let decoded = "";
+            let currentNode = huffmanTree;
+            let error = false;
+
+            for (const bit of binary) {
+                if (bit === "0") {
+                    currentNode = currentNode.left;
+                } else if (bit === "1") {
+                    currentNode = currentNode.right;
+                } else {
+                    decodedOutput.textContent =
+                        "Invalid binary string (use only 0 and 1)";
+                    error = true;
+                    break;
+                }
+
+                if (!currentNode) {
+                    decodedOutput.textContent =
+                        "Invalid binary string (not a valid Huffman code)";
+                    error = true;
+                    break;
+                }
+
+                if (currentNode.char !== null) {
+                    decoded += currentNode.char;
+                    currentNode = huffmanTree;
+                }
+            }
+            if (!error) {
+                decodedOutput.textContent = decoded;
+            }
+        }
+
+        // 2D Tree Visualization
+        function visualize2dTree(root) {
+            tree2d.innerHTML = "";
+
+            if (!root) {
+                const noDataMessage = document.createElement("p");
+                noDataMessage.textContent =
+                    "No Huffman tree to display. Analyze some text first.";
+                noDataMessage.classList.add(
+                    "text-gray-400",
+                    "text-base",
+                    "text-center",
+                    "mt-10 md:mt-20"
+                );
+                tree2d.appendChild(noDataMessage);
+                return;
+            }
+
+            treeData = {
+                name: root.count.toString(),
+                char: root.char,
+                children: [],
+            };
+
+            if (root.left) treeData.children.push(buildTreeData(root.left, "0"));
+            if (root.right) treeData.children.push(buildTreeData(root.right, "1"));
+
+            const width = tree2d.clientWidth;
+            const height = tree2d.clientHeight;
+
+            svg = d3
+                .select(tree2d)
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            g = svg.append("g").attr("transform", "translate(60, 30)");
+
+            zoom = d3
+                .zoom()
+                .scaleExtent([0.1, 5])
+                .on("zoom", (event) => g.attr("transform", event.transform));
+
+            svg.call(zoom);
+
+            const treeLayout = d3
+                .tree()
+                .size([width - 120, height - 80])
+                .nodeSize([60, 80]);
+
+            const rootHierarchy = d3.hierarchy(treeData);
+            const rootTree = treeLayout(rootHierarchy);
+
+            // Draw links first (behind nodes)
+            g.append("g")
+                .selectAll("path")
+                .data(rootTree.links())
+                .join("path")
+                .attr("class", "tree-link")
+                .attr(
+                    "d",
+                    d3
+                        .linkVertical()
+                        .x((d) => d.x)
+                        .y((d) => d.y)
+                );
+
+            // Add binary code labels centered on links
+            g.append("g")
+                .selectAll("text")
+                .data(rootTree.links())
+                .join("text")
+                .attr("class", "code-label")
+                .attr("x", (d) => (d.source.x + d.target.x) / 2)
+                .attr("y", (d) => (d.source.y + d.target.y) / 2 + 12)
+                .text((d) => d.target.data.code)
+                .style("font-size", "12px")
+                .style("font-weight", "bold");
+
+            // Create node groups
+            const node = g
+                .append("g")
+                .selectAll("g")
+                .data(rootTree.descendants())
+                .join("g")
+                .attr("transform", (d) => `translate(${d.x},${d.y})`);
+
+            // Draw node circles
+            node
+                .append("circle")
+                .attr("r", (d) => (d.data.char ? 16 : 18))
+                .attr("fill", (d) => (d.data.char ? "#10b981" : "#4f46e5"))
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 2)
+                .on("mouseover", (event, d) => {
+                    if (d.data.char) {
+                        tooltip.transition().duration(200).style("opacity", 0.9);
+                        const charDisplay =
+                            d.data.char === " "
+                                ? "Space"
+                                : d.data.char === "\n"
+                                    ? "Newline"
+                                    : d.data.char === "\t"
+                                        ? "Tab"
+                                        : escapeHtml(d.data.char);
+                        tooltip
+                            .html(
+                                `Character: ${charDisplay}<br>Code: ${huffmanCodes[d.data.char]
+                                }<br>Code Length: ${huffmanCodes[d.data.char]?.length || 0}`
+                            )
+                            .style("left", event.pageX + 10 + "px")
+                            .style("top", event.pageY - 28 + "px");
+                    } else {
+                        tooltip
+                            .transition()
+                            .duration(200)
+                            .style("opacity", 0.9)
+                            .html(`Frequency: ${d.data.name}`)
+                            .style("left", event.pageX + 10 + "px")
+                            .style("top", event.pageY - 28 + "px");
+                    }
+                })
+                .on("mouseout", () => {
+                    tooltip.transition().duration(500).style("opacity", 0);
+                });
+
+            // Add node text (characters or frequencies)
+            node
+                .append("text")
+                .attr("class", "node-text")
+                .style("font-size", "12px")
+                .text((d) =>
+                    d.data.char
+                        ? d.data.char === " "
+                            ? "␣"
+                            : d.data.char === "\n"
+                                ? "↵"
+                                : d.data.char === "\t"
+                                    ? "⇥"
+                                    : escapeHtml(d.data.char)
+                        : d.data.name
+                )
+                .clone(true)
+                .lower()
+                .attr("stroke", "white")
+                .attr("stroke-width", 3);
+
+            // Add a subtle grid background
+            svg
+                .append("defs")
+                .append("pattern")
+                .attr("id", "grid")
+                .attr("width", 40)
+                .attr("height", 40)
+                .attr("patternUnits", "userSpaceOnUse")
+                .append("path")
+                .attr("d", "M 40 0 L 0 0 0 40")
+                .attr("fill", "none")
+                .attr("stroke", "#e5e7eb")
+                .attr("stroke-width", 0.5);
+
+            svg
+                .append("rect")
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .attr("fill", "url(#grid)");
+        }
+
+        // Helper to build tree data
+        function buildTreeData(node, code) {
+            const data = {
+                name: node.count.toString(),
+                char: node.char,
+                code: code,
+                children: [],
+            };
+
+            if (node.left) data.children.push(buildTreeData(node.left, code + "0"));
+            if (node.right)
+                data.children.push(buildTreeData(node.right, code + "1"));
+
+            return data;
+        }
+
+        // Zoom 2D tree
+        function zoom2d(scaleFactor) {
+            currentScale *= scaleFactor;
+            svg.transition().call(zoom.scaleTo, currentScale);
+        }
+
+        // Reset 2D view
+        function reset2dView() {
+            currentScale = 1;
+            svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+        }
+
+        // Utility function to escape HTML characters
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Download tree as PNG exactly as displayed
+        function downloadTreeImage() {
+            const treeContainer = document.getElementById('tree2d');
+
+            if (!treeContainer.querySelector('svg')) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'No Tree Generated',
+                    text: 'Please analyze some text first to generate a tree!',
+                    confirmButtonColor: '#4f46e5',
+                });
+                return;
+            }
+
+            html2canvas(treeContainer, {
+                backgroundColor: null,
+                scale: 2,
+                useCORS: true,
+            }).then(canvas => {
+                const pngUrl = canvas.toDataURL('image/png');
+
+                const downloadLink = document.createElement('a');
+                downloadLink.href = pngUrl;
+                downloadLink.download = 'huffman-tree.png';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+            }).catch(error => {
+                console.error('Error generating PNG:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Download Failed',
+                    text: 'Failed to download the tree image. Please try again.',
+                    confirmButtonColor: '#4f46e5',
+                });
+            });
+        }
+
+        // Copy encoded output
+        document
+            .getElementById("copyEncodedBtn")
+            .addEventListener("click", function () {
+                const encodedText =
+                    document.getElementById("encodedOutput").textContent;
+                navigator.clipboard.writeText(encodedText).then(() => {
+                    showCopyFeedback(this);
+                });
+            });
+
+        // Copy decoded output
+        document
+            .getElementById("copyDecodedBtn")
+            .addEventListener("click", function () {
+                const decodedText =
+                    document.getElementById("decodedOutput").textContent;
+                navigator.clipboard.writeText(decodedText).then(() => {
+                    showCopyFeedback(this);
+                });
+            });
+
+        // Show feedback when copying
+        function showCopyFeedback(button) {
+            const originalHTML = button.innerHTML;
+            button.innerHTML = '<i class="material-icons text-sm">check</i>';
+            button.classList.remove("bg-white", "text-blue-600");
+            button.classList.add("bg-green-100", "text-green-600");
+
+            // Add a small toast notification
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
+
+            Toast.fire({
+                icon: 'success',
+                title: 'Copied to clipboard!'
+            });
+
+            setTimeout(() => {
+                button.innerHTML = originalHTML;
+                button.classList.remove("bg-green-100", "text-green-600");
+                button.classList.add("bg-white", "text-blue-600");
+            }, 2000);
+        }
+    </script>
+</body>
+
+</html>
